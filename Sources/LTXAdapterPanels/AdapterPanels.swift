@@ -7,23 +7,50 @@ import LTXFeatureCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Standard side-rail panel container (placeholder chrome — to be replaced by the app's
-/// 300px left/right panel style per BRIDGE-LTX-007).
-public struct FeaturePanelContainer<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: () -> Content
+/// Standard 300px side-rail panel chrome — contributed by the Xcode agent (BRIDGE-LTX-007,
+/// build-verified in LTXVideoTesting, light+dark): titled material card — header row (optional
+/// SF Symbol + title + optional trailing accessory) over a hairline Divider, left-aligned
+/// content, `.regularMaterial` in a 12pt rounded rect with a `.quaternary` hairline border.
+/// The optional `accessory` closure hosts per-panel actions (reset / clear / help).
+public struct FeaturePanelContainer<Content: View, Accessory: View>: View {
+    private let title: String
+    private let systemImage: String?
+    @ViewBuilder private let accessory: () -> Accessory
+    @ViewBuilder private let content: () -> Content
 
-    public init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+    public init(_ title: String, systemImage: String? = nil,
+                @ViewBuilder accessory: @escaping () -> Accessory,
+                @ViewBuilder content: @escaping () -> Content) {
         self.title = title
+        self.systemImage = systemImage
+        self.accessory = accessory
         self.content = content
     }
 
     public var body: some View {
-        GroupBox(title) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                if let systemImage {
+                    Image(systemName: systemImage).foregroundStyle(.secondary).imageScale(.medium)
+                }
+                Text(title).font(.headline).lineLimit(1)
+                Spacer(minLength: 8)
+                accessory()
+            }
+            Divider()
             VStack(alignment: .leading, spacing: 10) { content() }
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 300)
+        .padding(14)
+        .frame(width: 300, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 1))
+    }
+}
+
+public extension FeaturePanelContainer where Accessory == EmptyView {
+    init(_ title: String, systemImage: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title, systemImage: systemImage, accessory: { EmptyView() }, content: content)
     }
 }
 
@@ -93,12 +120,18 @@ public struct ConditioningPanel: View {
 
     @ViewBuilder
     private func oneOfGroup(_ key: String, _ slots: [ConditioningSlot]) -> some View {
-        Picker("Source", selection: Binding(
+        // Xcode-agent visual finding (BRIDGE-LTX-007): 3+ segments truncate at the 300px panel
+        // width — segmented only for pairs, menu picker beyond that.
+        let picker = Picker("Source", selection: Binding(
             get: { selection.chosenAlternative[key] ?? slots[0].role },
             set: { selection.chosenAlternative[key] = $0 })) {
             ForEach(slots, id: \.role) { Text(label(for: $0.role)).tag($0.role) }
         }
-        .pickerStyle(.segmented)
+        if slots.count > 2 {
+            picker.pickerStyle(.menu)
+        } else {
+            picker.pickerStyle(.segmented)
+        }
         let chosen = selection.chosenAlternative[key] ?? slots[0].role
         if let slot = slots.first(where: { $0.role == chosen }) {
             SlotRow(slot: slot, selection: selection)
