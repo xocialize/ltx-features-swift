@@ -1,0 +1,174 @@
+// AdapterPanels.swift — the GENERIC registry-driven floor (BRIDGE-LTX-007): every adapter in the
+// registry gets a working UI here with zero per-adapter code. Feature kits (LTXIngredients …)
+// are curated experiences layered above this. Functional-first: chrome is deliberately plain
+// until the Xcode agent's 300px panel style lands (007) — structure over styling.
+
+import LTXFeatureCore
+import SwiftUI
+import UniformTypeIdentifiers
+
+/// Standard side-rail panel container (placeholder chrome — to be replaced by the app's
+/// 300px left/right panel style per BRIDGE-LTX-007).
+public struct FeaturePanelContainer<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    public init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    public var body: some View {
+        GroupBox(title) {
+            VStack(alignment: .leading, spacing: 10) { content() }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(width: 300)
+    }
+}
+
+/// Adapter picker + strength + trigger + license gate.
+public struct AdapterPanel: View {
+    let registry: AdapterRegistry
+    @Bindable var selection: AdapterSelection
+    /// Show license-gated (eval-only) entries — the host decides (test app: yes).
+    let includeGated: Bool
+
+    public init(registry: AdapterRegistry, selection: AdapterSelection, includeGated: Bool = false) {
+        self.registry = registry
+        self.selection = selection
+        self.includeGated = includeGated
+    }
+
+    public var body: some View {
+        FeaturePanelContainer("Adapter") {
+            Picker("Effect", selection: Binding(
+                get: { selection.entry?.id ?? "" },
+                set: { id in selection.select(registry.entry(id: id)) })) {
+                Text("None (base model)").tag("")
+                ForEach(registry.surfaced(includeGated: includeGated), id: \.id) { entry in
+                    Text(entry.displayName).tag(entry.id)
+                }
+            }
+            if let entry = selection.entry {
+                HStack {
+                    Text("Strength")
+                    Slider(value: $selection.strength, in: 0 ... 2)
+                    Text(String(format: "%.2f", selection.strength)).monospacedDigit()
+                }
+                if !entry.trigger.isEmpty {
+                    Text("Trigger: \(entry.trigger)").font(.caption).foregroundStyle(.secondary)
+                }
+                if entry.isLicenseGated {
+                    Toggle(isOn: $selection.licenseAcknowledged) {
+                        Text("I acknowledge this adapter's license (\(entry.license ?? "restricted")) — evaluation use only")
+                            .font(.caption)
+                    }
+                    .toggleStyle(.checkbox)
+                }
+            }
+        }
+    }
+}
+
+/// One control per declared conditioning slot; one-of groups render a mode picker first.
+public struct ConditioningPanel: View {
+    @Bindable var selection: AdapterSelection
+
+    public init(selection: AdapterSelection) { self.selection = selection }
+
+    public var body: some View {
+        if let entry = selection.entry, !entry.slots.isEmpty {
+            FeaturePanelContainer("Conditioning") {
+                ForEach(entry.slotGroups, id: \.key) { group in
+                    if group.slots.count > 1 {
+                        oneOfGroup(group.key, group.slots)
+                    } else {
+                        SlotRow(slot: group.slots[0], selection: selection)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func oneOfGroup(_ key: String, _ slots: [ConditioningSlot]) -> some View {
+        Picker("Source", selection: Binding(
+            get: { selection.chosenAlternative[key] ?? slots[0].role },
+            set: { selection.chosenAlternative[key] = $0 })) {
+            ForEach(slots, id: \.role) { Text(label(for: $0.role)).tag($0.role) }
+        }
+        .pickerStyle(.segmented)
+        let chosen = selection.chosenAlternative[key] ?? slots[0].role
+        if let slot = slots.first(where: { $0.role == chosen }) {
+            SlotRow(slot: slot, selection: selection)
+        }
+    }
+
+    private func label(for role: String) -> String {
+        role.split(separator: "_").map(\.capitalized).joined(separator: " ")
+    }
+}
+
+/// A single slot's control, by media kind. File-URL payloads for video/audio; image data for
+/// image/imageSet (imageSet shows per-image description fields — they feed prompt conventions).
+struct SlotRow: View {
+    let slot: ConditioningSlot
+    @Bindable var selection: AdapterSelection
+    @State private var importing = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title).font(.callout.weight(.medium))
+                if slot.isRequired { Text("required").font(.caption2).foregroundStyle(.orange) }
+                Spacer()
+                Button(selection.attachments[slot.role] == nil ? "Choose…" : "Replace…") {
+                    importing = true
+                }
+            }
+            if let note = slot.note {
+                Text(note).font(.caption).foregroundStyle(.secondary)
+            }
+            if case .imageSet(let images, _) = selection.attachments[slot.role]?.payload {
+                Text("\(images.count) image(s) selected").font(.caption)
+            } else if selection.attachments[slot.role] != nil {
+                Text("Selected ✓").font(.caption).foregroundStyle(.green)
+            }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: contentTypes,
+                      allowsMultipleSelection: slot.media == .imageSet) { result in
+            guard case .success(let urls) = result, !urls.isEmpty else { return }
+            selection.attachments[slot.role] = attachment(for: urls)
+        }
+    }
+
+    private var title: String {
+        slot.role.split(separator: "_").map(\.capitalized).joined(separator: " ")
+    }
+
+    private var contentTypes: [UTType] {
+        switch slot.media {
+        case .video: return [.movie, .mpeg4Movie, .quickTimeMovie]
+        case .audio: return [.audio]
+        case .image, .imageSet: return [.image]
+        }
+    }
+
+    private func attachment(for urls: [URL]) -> ConditioningAttachment? {
+        switch slot.media {
+        case .video: return ConditioningAttachment(role: slot.role, payload: .video(urls[0]),
+                                                   strength: slot.defaultStrength)
+        case .audio: return ConditioningAttachment(role: slot.role, payload: .audio(urls[0]))
+        case .image:
+            guard let data = try? Data(contentsOf: urls[0]) else { return nil }
+            return ConditioningAttachment(role: slot.role, payload: .image(data))
+        case .imageSet:
+            let limited = urls.prefix(slot.maxCount ?? urls.count)
+            let datas = limited.compactMap { try? Data(contentsOf: $0) }
+            guard !datas.isEmpty else { return nil }
+            return ConditioningAttachment(role: slot.role,
+                                          payload: .imageSet(datas, descriptions: datas.map { _ in nil }))
+        }
+    }
+}
