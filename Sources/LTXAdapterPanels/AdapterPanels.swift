@@ -168,6 +168,17 @@ struct SlotRow: View {
             } else if selection.attachments[slot.role] != nil {
                 Text("Selected ✓").font(.caption).foregroundStyle(.green)
             }
+            // Describable slots (registry `describable: true`): the text feeds the adapter's
+            // promptConvention — e.g. the "Reference sheet:" half of the Ingredients prompt.
+            if slot.isDescribable {
+                TextField(slot.describeNote ?? "Describe this attachment…",
+                          text: Binding(get: { selection.slotDescriptions[slot.role] ?? "" },
+                                        set: { selection.slotDescriptions[slot.role] = $0 }),
+                          axis: .vertical)
+                    .lineLimit(2 ... 5)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+            }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: contentTypes,
                       allowsMultipleSelection: slot.media == .imageSet) { result in

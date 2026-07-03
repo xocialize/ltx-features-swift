@@ -122,6 +122,33 @@ final class LTXFeaturesTests: XCTestCase {
         XCTAssertEqual(decoded.width, 1456)
     }
 
+    // MARK: - Prompt convention (registry-declared, generic path)
+
+    func testPromptConventionAssembly() {
+        let out = PromptConvention.assemble(convention: "ingredients-dual-part",
+                                            descriptions: ["a knight", "  ", "a foggy courtyard"],
+                                            action: "the knight walks forward")
+        XCTAssertEqual(out, "Reference sheet: a knight; a foggy courtyard\n\nGenerated video: the knight walks forward")
+        // Unknown convention / no descriptions → action passes through.
+        XCTAssertEqual(PromptConvention.assemble(convention: nil, descriptions: ["x"], action: "a"), "a")
+        XCTAssertEqual(PromptConvention.assemble(convention: "ingredients-dual-part",
+                                                 descriptions: [], action: "a"), "a")
+    }
+
+    func testDescribableSlotDeclaredInRegistry() throws {
+        let reg = try AdapterRegistry.bundled()
+        let ing = try XCTUnwrap(reg.entry(id: "ingredients"))
+        let sheet = try XCTUnwrap(ing.slots.first { $0.role == "reference_sheet" })
+        XCTAssertTrue(sheet.isDescribable)
+        XCTAssertNotNil(sheet.describeNote)
+    }
+
+    func testAttachmentCarriesDescription() {
+        let att = ConditioningAttachment(role: "reference_sheet", payload: .image(Data([1])),
+                                         description: "a silver-haired woman")
+        XCTAssertEqual(att.description, "a silver-haired woman")
+    }
+
     // MARK: - Ingredients prompt convention (exact community-Space format)
 
     func testIngredientsDualPartPromptMatchesReferenceUsage() {

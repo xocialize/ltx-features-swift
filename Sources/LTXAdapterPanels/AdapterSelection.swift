@@ -11,6 +11,8 @@ public final class AdapterSelection {
     public var strength: Double = 1.0
     /// role → picked payload (file URLs / image data), keyed by ConditioningSlot.role.
     public var attachments: [String: ConditioningAttachment] = [:]
+    /// role → user-typed description (slots with `describable: true`) — feeds `promptConvention`.
+    public var slotDescriptions: [String: String] = [:]
     /// For one-of groups: the role the user chose to fill (drives which control is shown).
     public var chosenAlternative: [String: String] = [:]
     /// License-gated entries need this flipped by an explicit user action before use.
@@ -22,19 +24,39 @@ public final class AdapterSelection {
         self.entry = entry
         strength = entry?.defaultStrength ?? 1.0
         attachments = [:]
+        slotDescriptions = [:]
         chosenAlternative = [:]
         licenseAcknowledged = false
     }
 
-    /// The attachments in intent shape, honoring one-of choices.
+    /// The attachments in intent shape, honoring one-of choices, with typed descriptions merged.
     public var intentAttachments: [ConditioningAttachment] {
         guard let entry else { return [] }
         return entry.slotGroups.flatMap { key, slots -> [ConditioningAttachment] in
+            let picked: [ConditioningAttachment]
             if slots.count > 1, let chosen = chosenAlternative[key] {
-                return attachments[chosen].map { [$0] } ?? []
+                picked = attachments[chosen].map { [$0] } ?? []
+            } else {
+                picked = slots.compactMap { attachments[$0.role] }
             }
-            return slots.compactMap { attachments[$0.role] }
+            return picked.map { att in
+                guard let text = slotDescriptions[att.role],
+                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return att }
+                return ConditioningAttachment(role: att.role, payload: att.payload,
+                                              strength: att.strength, description: text)
+            }
         }
+    }
+
+    /// The FINAL prompt for the request: the adapter's `promptConvention` applied over the active
+    /// slots' descriptions (slot order) with `action` = the app's main prompt box. No adapter /
+    /// no convention / no descriptions ⇒ `action` unchanged — the host can call this
+    /// unconditionally instead of special-casing per adapter.
+    public func assembledPrompt(action: String) -> String {
+        guard let entry else { return action }
+        let descriptions = intentAttachments.compactMap(\.description)
+        return PromptConvention.assemble(convention: entry.promptConvention,
+                                         descriptions: descriptions, action: action)
     }
 
     public var readyToGenerate: Bool {

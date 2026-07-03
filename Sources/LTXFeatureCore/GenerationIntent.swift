@@ -22,11 +22,15 @@ public struct ConditioningAttachment: Sendable, Equatable {
     public let payload: Payload
     /// Conditioning strength override; nil = the slot's/adapter's default.
     public let strength: Double?
+    /// User-supplied description of this attachment (slots with `describable: true`) — consumed
+    /// by the adapter's `promptConvention` when assembling the final prompt.
+    public let description: String?
 
-    public init(role: String, payload: Payload, strength: Double? = nil) {
+    public init(role: String, payload: Payload, strength: Double? = nil, description: String? = nil) {
         self.role = role
         self.payload = payload
         self.strength = strength
+        self.description = description
     }
 }
 

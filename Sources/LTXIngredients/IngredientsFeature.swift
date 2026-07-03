@@ -21,9 +21,9 @@ public enum IngredientsPrompt {
                                 actionBrief: String) -> String {
         var elements = panelDescriptions.compactMap { $0 }
         if let loc = locationDescription { elements.append(loc) }
-        let sheet = elements.joined(separator: "; ")
-        guard !sheet.isEmpty else { return "Generated video: \(actionBrief)" }
-        return "Reference sheet: \(sheet)\n\nGenerated video: \(actionBrief)"
+        guard !elements.isEmpty else { return "Generated video: \(actionBrief)" }
+        return PromptConvention.assemble(convention: PromptConvention.ingredientsDualPart,
+                                         descriptions: elements, action: actionBrief)
     }
 }
 

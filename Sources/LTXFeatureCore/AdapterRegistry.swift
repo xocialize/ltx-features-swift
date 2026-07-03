@@ -19,8 +19,13 @@ public struct ConditioningSlot: Codable, Sendable, Equatable {
     public let ingest: String?
     public let defaultStrength: Double?
     public let note: String?
+    /// The slot wants a user-supplied text description (feeds the adapter's `promptConvention`,
+    /// e.g. the "Reference sheet:" half of the Ingredients dual-part prompt).
+    public let describable: Bool?
+    public let describeNote: String?
 
     public var isRequired: Bool { required ?? false }
+    public var isDescribable: Bool { describable ?? false }
 }
 
 /// One adapter (schema v2). v1 fields unchanged; `conditioning` is present iff `kind == .ic`.
