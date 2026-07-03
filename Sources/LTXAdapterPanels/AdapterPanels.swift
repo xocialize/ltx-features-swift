@@ -73,8 +73,18 @@ public struct AdapterPanel: View {
                 get: { selection.entry?.id ?? "" },
                 set: { id in selection.select(registry.entry(id: id)) })) {
                 Text("None (base model)").tag("")
-                ForEach(registry.surfaced(includeGated: includeGated), id: \.id) { entry in
-                    Text(entry.displayName).tag(entry.id)
+                // Grouped set: vetted standard effects (weight delta + trigger + optional image)
+                // first, in-context reference adapters after — one unified mechanism.
+                let surfaced = registry.surfaced(includeGated: includeGated)
+                Section("Standard effects") {
+                    ForEach(surfaced.filter { $0.effectiveKind == .plain }, id: \.id) { entry in
+                        Text(entry.displayName).tag(entry.id)
+                    }
+                }
+                Section("In-context (reference) adapters") {
+                    ForEach(surfaced.filter { $0.effectiveKind == .ic }, id: \.id) { entry in
+                        Text(entry.displayName).tag(entry.id)
+                    }
                 }
             }
             if let entry = selection.entry {

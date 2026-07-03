@@ -48,12 +48,20 @@ public final class AdapterSelection {
         }
     }
 
-    /// The FINAL prompt for the request: the adapter's `promptConvention` applied over the active
-    /// slots' descriptions (slot order) with `action` = the app's main prompt box. No adapter /
-    /// no convention / no descriptions ⇒ `action` unchanged — the host can call this
-    /// unconditionally instead of special-casing per adapter.
+    /// The FINAL prompt for the request: the adapter's TRIGGER word auto-injected into the action
+    /// (the unified plain-LoRA mechanism — no manual insert button), then the `promptConvention`
+    /// applied over the active slots' descriptions. No adapter / no trigger / no convention ⇒
+    /// `action` unchanged — the host calls this unconditionally.
     public func assembledPrompt(action: String) -> String {
         guard let entry else { return action }
+        var action = action
+        // Trigger injection (mirrors the proven app-side helper): skip when already present
+        // (case-insensitive); empty action becomes the bare trigger.
+        let trigger = entry.trigger.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trigger.isEmpty, !action.localizedCaseInsensitiveContains(trigger) {
+            let base = action.trimmingCharacters(in: .whitespacesAndNewlines)
+            action = base.isEmpty ? trigger : "\(base), \(trigger)"
+        }
         let descriptions = intentAttachments.compactMap(\.description)
         return PromptConvention.assemble(convention: entry.promptConvention,
                                          descriptions: descriptions, action: action)

@@ -1,6 +1,7 @@
 import CoreGraphics
 import XCTest
 @testable import LTXFeatureCore
+import LTXAdapterPanels
 @testable import LTXIngredients
 
 final class LTXFeaturesTests: XCTestCase {
@@ -147,6 +148,35 @@ final class LTXFeaturesTests: XCTestCase {
         let att = ConditioningAttachment(role: "reference_sheet", payload: .image(Data([1])),
                                          description: "a silver-haired woman")
         XCTAssertEqual(att.description, "a silver-haired woman")
+    }
+
+    // MARK: - Unified plain-LoRA mechanism (trigger injection + declared image slot)
+
+    @MainActor
+    func testTriggerAutoInjection() throws {
+        let reg = try AdapterRegistry.bundled()
+        let selection = AdapterSelection()
+        selection.select(reg.entry(id: "fantasy-anime"))   // trigger: f4nt4sy4n1m6
+        // Appended when absent.
+        XCTAssertEqual(selection.assembledPrompt(action: "a fox runs"), "a fox runs, f4nt4sy4n1m6")
+        // Case-insensitive containment → no duplicate.
+        XCTAssertEqual(selection.assembledPrompt(action: "a fox runs, F4NT4SY4N1M6"),
+                       "a fox runs, F4NT4SY4N1M6")
+        // Empty action → bare trigger.
+        XCTAssertEqual(selection.assembledPrompt(action: "  "), "f4nt4sy4n1m6")
+        // No-trigger entries pass through.
+        selection.select(reg.entry(id: "omnicine"))
+        XCTAssertEqual(selection.assembledPrompt(action: "a fox runs"), "a fox runs")
+    }
+
+    func testI2VAdapterDeclaresInitImageSlot() throws {
+        let reg = try AdapterRegistry.bundled()
+        let entry = try XCTUnwrap(reg.entry(id: "i2v-adapter"))
+        XCTAssertEqual(entry.effectiveKind, .plain)
+        let slot = try XCTUnwrap(entry.slots.first)
+        XCTAssertEqual(slot.role, "init_image")
+        XCTAssertEqual(slot.media, .image)
+        XCTAssertEqual(slot.ingest, "initImage")
     }
 
     // MARK: - Ingredients prompt convention (exact community-Space format)
