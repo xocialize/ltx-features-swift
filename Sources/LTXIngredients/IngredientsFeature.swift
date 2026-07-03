@@ -11,25 +11,19 @@ import LTXAdapterPanels
 import LTXFeatureCore
 import SwiftUI
 
-/// Assembles the Ingredients dual-part prompt: "Reference sheet: …" describes the panels,
-/// "Generated video: …" carries the user's action brief. (The convention the adapter was
-/// trained on; also a PromptEnhanceKit template hook — IC-LORA-PLAN P7.)
+/// Assembles the Ingredients dual-part prompt in the EXACT format the reference usage feeds the
+/// adapter (verified against the community Space `ltx-community/ltx-2.3-ingredients-distilled`,
+/// `build_prompt`): `"Reference sheet: {elements}\n\nGenerated video: {action}"` — free-form
+/// element descriptions joined with semicolons, NO panel numbering, blank-line separator.
+/// (Also a PromptEnhanceKit template hook — IC-LORA-PLAN P7.)
 public enum IngredientsPrompt {
     public static func assemble(panelDescriptions: [String?], locationDescription: String?,
                                 actionBrief: String) -> String {
-        var parts: [String] = []
-        let described = panelDescriptions.enumerated().compactMap { i, d in
-            d.map { "panel \(i + 1): \($0)" }
-        }
-        if !described.isEmpty || locationDescription != nil {
-            var sheet = described.joined(separator: "; ")
-            if let loc = locationDescription {
-                sheet += sheet.isEmpty ? "location: \(loc)" : "; location: \(loc)"
-            }
-            parts.append("Reference sheet: \(sheet).")
-        }
-        parts.append("Generated video: \(actionBrief)")
-        return parts.joined(separator: " ")
+        var elements = panelDescriptions.compactMap { $0 }
+        if let loc = locationDescription { elements.append(loc) }
+        let sheet = elements.joined(separator: "; ")
+        guard !sheet.isEmpty else { return "Generated video: \(actionBrief)" }
+        return "Reference sheet: \(sheet)\n\nGenerated video: \(actionBrief)"
     }
 }
 

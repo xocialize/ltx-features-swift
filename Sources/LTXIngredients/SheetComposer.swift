@@ -45,6 +45,38 @@ public enum SheetComposer {
         }
     }
 
+    /// Grid layout — the community-reference composition (mirrors the
+    /// `ltx-community/ltx-2.3-ingredients-distilled` Space's `compose_sheet`): √n columns,
+    /// aspect-contain cells centered on black, uniform gutters, no labels. A single image is
+    /// returned as-is (the Space does the same). Use when there's no location/subject split.
+    public static func composeGrid(images: [CGImage], spec: Spec = Spec()) throws -> CGImage {
+        guard !images.isEmpty else { throw ComposeError.noInputs }
+        guard images.count <= spec.maxSubjects else {
+            throw ComposeError.tooManySubjects(images.count, max: spec.maxSubjects)
+        }
+        if images.count == 1 { return images[0] }
+        let W = spec.width, H = spec.height, g = CGFloat(spec.gutter)
+        let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
+        ctx.interpolationQuality = .high
+        let cols = Int(Double(images.count).squareRoot().rounded(.up))
+        let rows = Int((Double(images.count) / Double(cols)).rounded(.up))
+        let cw = (CGFloat(W) - g * CGFloat(cols + 1)) / CGFloat(cols)
+        let ch = (CGFloat(H) - g * CGFloat(rows + 1)) / CGFloat(rows)
+        for (i, img) in images.enumerated() {
+            let r = i / cols, c = i % cols
+            // CG origin is bottom-left; fill row 0 at the TOP like the reference.
+            let cell = CGRect(x: g + CGFloat(c) * (cw + g),
+                              y: CGFloat(H) - (g + CGFloat(r + 1) * ch + CGFloat(r) * g),
+                              width: cw, height: ch)
+            draw(img, fitIn: cell, in: ctx)
+        }
+        return ctx.makeImage()!
+    }
+
     /// Compose a sheet from decoded images. Subjects fill a uniform top row (aspect-fit inside
     /// each panel, centered, black elsewhere); the location fills a full-width bottom band
     /// (aspect-fit). No subjects → the location gets the whole sheet; no location → subjects do.

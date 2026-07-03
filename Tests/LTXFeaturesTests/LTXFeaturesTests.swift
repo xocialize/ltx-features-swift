@@ -122,15 +122,18 @@ final class LTXFeaturesTests: XCTestCase {
         XCTAssertEqual(decoded.width, 1456)
     }
 
-    // MARK: - Ingredients prompt convention
+    // MARK: - Ingredients prompt convention (exact community-Space format)
 
-    func testIngredientsDualPartPrompt() {
+    func testIngredientsDualPartPromptMatchesReferenceUsage() {
         let prompt = IngredientsPrompt.assemble(
             panelDescriptions: ["a knight in silver armor", nil, "an ancient oak staff"],
             locationDescription: "a foggy castle courtyard",
             actionBrief: "the knight raises the staff as dawn breaks")
-        XCTAssertTrue(prompt.hasPrefix("Reference sheet: panel 1: a knight in silver armor; panel 3: an ancient oak staff; location: a foggy castle courtyard."))
-        XCTAssertTrue(prompt.hasSuffix("Generated video: the knight raises the staff as dawn breaks"))
+        // build_prompt format from ltx-community/ltx-2.3-ingredients-distilled: no panel labels,
+        // semicolon-joined elements, blank-line separator.
+        XCTAssertEqual(prompt,
+            "Reference sheet: a knight in silver armor; an ancient oak staff; a foggy castle courtyard"
+            + "\n\nGenerated video: the knight raises the staff as dawn breaks")
     }
 
     func testIngredientsPromptWithoutDescriptions() {
@@ -138,5 +141,30 @@ final class LTXFeaturesTests: XCTestCase {
                                                 locationDescription: nil,
                                                 actionBrief: "a fox runs")
         XCTAssertEqual(prompt, "Generated video: a fox runs")
+    }
+
+    // MARK: - Grid composer (community-reference layout)
+
+    func testGridComposerLayout() throws {
+        let imgs = (0 ..< 5).map { i in
+            solidImage(w: 200, h: 200, r: i == 0 ? 1 : 0, g: i == 0 ? 0 : 1, b: 0)
+        }
+        let sheet = try SheetComposer.composeGrid(images: imgs)
+        XCTAssertEqual(sheet.width, 1456)
+        XCTAssertEqual(sheet.height, 825)
+        // 5 images → 3 cols × 2 rows; first cell (top-left) shows red at its center.
+        let cw = (1456.0 - 12.0 * 4) / 3, ch = (825.0 - 12.0 * 3) / 2
+        let p = pixel(sheet, x: Int(12 + cw / 2), y: Int(12 + ch / 2))
+        XCTAssertGreaterThan(p.r, 200); XCTAssertLessThan(p.g, 50)
+        // Gutter stays black.
+        let gutter = pixel(sheet, x: 3, y: 3)
+        XCTAssertEqual(gutter.r, 0); XCTAssertEqual(gutter.g, 0)
+    }
+
+    func testGridComposerSingleImagePassthrough() throws {
+        let img = solidImage(w: 123, h: 77, r: 1, g: 1, b: 1)
+        let out = try SheetComposer.composeGrid(images: [img])
+        XCTAssertEqual(out.width, 123)
+        XCTAssertEqual(out.height, 77)
     }
 }
