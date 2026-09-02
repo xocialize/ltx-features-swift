@@ -11,7 +11,11 @@ final class LTXFeaturesTests: XCTestCase {
     func testBundledRegistryDecodesV2() throws {
         let reg = try AdapterRegistry.bundled()
         XCTAssertEqual(reg.schemaVersion, 2)
-        XCTAssertEqual(reg.adapters.count, 7)
+        // 10 since the 2026-08 registry syncs (6 plain + 4 IC); this assertion sat at 7 through three
+        // syncs and only surfaced when the package was built remotely (AB-A-0052). Count the
+        // vendored file, not a memory of it.
+        XCTAssertEqual(reg.adapters.count, 10)
+        XCTAssertEqual(reg.adapters.filter { $0.effectiveKind == .plain }.count, 6)
         // Plain entry: v2 fields defaulted.
         let plain = try XCTUnwrap(reg.entry(id: "transition"))
         XCTAssertEqual(plain.effectiveKind, .plain)

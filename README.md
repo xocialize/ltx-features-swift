@@ -29,3 +29,18 @@ Planned as ready: `LTXLipDub`, `LTXCameraTransfer` (license-gated).
 - `LTXEngineSession.generate`: base t2v/i2v + plain adapters work now; IC adapters validate and
   resolve weights but throw `adapterNotYetSupported` until the MLXLTX2 conditioning intake lands
   (IC-LORA-PLAN P4) — the seam is shaped for it.
+
+## Consuming this package (read before adding it to an Xcode project)
+
+Add it by **branch** (`main`) or **revision**, not by version — and add `ltx-2-mlx-swift` the same
+way (LTX Studio already takes the port as `branch: main`). Measured 2026-09-02 (AB-A-0052): a
+`from:` requirement on this package, or on the port, is rejected by SwiftPM — *"required using a
+stable-version but depends on an unstable-version package 'mlx-swift-lm'"* — because the port must
+pin `mlx-swift-lm` by **revision** until upstream tags the Gemma-4 SPI (no tag ≥3.31.4 carries it;
+a fork tag is barred by upstream's `unsafeFlags(["-w"])`, which SwiftPM forbids in version-pinned
+packages). SwiftPM also requires every requirement on one package to AGREE, so this manifest takes
+the port as `branch: "main"` to match the studio's existing requirement. Tags on this repo
+(`v0.1.x`) still mark registry syncs and API states — pin the tag's **commit** as a revision if you
+want reproducibility. Local development against the sibling checkout:
+`swift package edit ltx-2-mlx-swift --path ../ltx-2-mlx-swift` (or Xcode's local-override).
+Both revert to `from:` the day upstream `mlx-swift-lm` ships a tag with #530/#387.

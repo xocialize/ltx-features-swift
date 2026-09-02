@@ -28,8 +28,23 @@ let package = Package(
         .library(name: "LTXIngredients", targets: ["LTXIngredients"]),
     ],
     dependencies: [
-        .package(path: "../ltx-2-mlx-swift"),
-        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.9.1"),
+        // URL, NOT a path dep (AB-A-0052, 2026-09-02): a path dependency makes this package
+        // UNCONSUMABLE remotely — SwiftPM has no `../ltx-2-mlx-swift` beside a fetched checkout and
+        // the graph fails (the same class as AB-T-0073 on the port's own mlx-swift-lm dep).
+        // 🚨 BRANCH, NOT `from: "0.14.0"` — measured 2026-09-02: a stable-version requirement on the
+        // port is REJECTED ("required using a stable-version but depends on an unstable-version
+        // package 'mlx-swift-lm'") because the port must pin mlx-swift-lm by REVISION until upstream
+        // tags the Gemma-4 SPI (no tag ≥3.31.4 carries it; a fork tag is barred by upstream's
+        // `unsafeFlags(["-w"])`, which SwiftPM forbids in version-pinned deps). An unstable requirement
+        // is the only consumable form, and SwiftPM demands every requirement on one package AGREE —
+        // LTX Studio already takes the port as `branch: "main"`, so this matches it. Consumers add
+        // this package by branch/revision too (Xcode "Branch" rule); a `from:` on it fails the same
+        // way. Revert both to `from:` the day upstream mlx-swift-lm ships a tag with #530/#387.
+        // Local development against the sibling checkout: `swift package edit ltx-2-mlx-swift --path
+        // ../ltx-2-mlx-swift` (or Xcode's local-override) — the URL form costs nothing in-tree.
+        .package(url: "https://github.com/xocialize/ltx-2-mlx-swift", branch: "main"),
+        // Floor raised to what ltx-2-mlx-swift 0.14.0 itself requires; the two unify at ≥0.47.0.
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.47.0"),
     ],
     targets: [
         .target(
