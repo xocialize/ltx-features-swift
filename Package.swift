@@ -43,8 +43,9 @@ let package = Package(
         // Local development against the sibling checkout: `swift package edit ltx-2-mlx-swift --path
         // ../ltx-2-mlx-swift` (or Xcode's local-override) — the URL form costs nothing in-tree.
         .package(url: "https://github.com/xocialize/ltx-2-mlx-swift", branch: "main"),
-        // Floor raised to what ltx-2-mlx-swift 0.14.0 itself requires; the two unify at ≥0.47.0.
-        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.47.0"),
+        // Floor raised to what ltx-2-mlx-swift 0.21.0 itself requires: contract 1.55.0, typed
+        // adapters with conditioning groups (AB-A-0197).
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.70.0"),
     ],
     targets: [
         .target(

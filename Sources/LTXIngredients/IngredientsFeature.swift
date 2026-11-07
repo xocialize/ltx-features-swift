@@ -3,9 +3,9 @@
 // descriptions, live sheet preview (SheetComposer, P2b), dual-part prompt assembly per the
 // adapter's `promptConvention`, and intent submission through any `FeatureSession`.
 //
-// STATUS: functional skeleton — generation throws `adapterNotYetSupported` until the MLXLTX2 IC
-// conditioning intake lands (IC-LORA-PLAN P4); the sheet composer + prompt assembly + panels are
-// live now so UX iteration (BRIDGE-LTX-007) doesn't wait on the pipeline.
+// STATUS: generation runs through `LTXEngineSession` on the engine's typed adapters (contract
+// 1.53.0, AB-A-0197): the composed sheet binds Ingredients' `reference_sheet` slot, one alternative
+// of its `exactlyOne` sheet group.
 
 import LTXAdapterPanels
 import LTXFeatureCore
