@@ -31,21 +31,19 @@ let package = Package(
         // URL, NOT a path dep (AB-A-0052, 2026-09-02): a path dependency makes this package
         // UNCONSUMABLE remotely — SwiftPM has no `../ltx-2-mlx-swift` beside a fetched checkout and
         // the graph fails (the same class as AB-T-0073 on the port's own mlx-swift-lm dep).
-        // 🚨 BRANCH, NOT `from: "0.14.0"` — measured 2026-09-02: a stable-version requirement on the
-        // port is REJECTED ("required using a stable-version but depends on an unstable-version
-        // package 'mlx-swift-lm'") because the port must pin mlx-swift-lm by REVISION until upstream
-        // tags the Gemma-4 SPI (no tag ≥3.31.4 carries it; a fork tag is barred by upstream's
-        // `unsafeFlags(["-w"])`, which SwiftPM forbids in version-pinned deps). An unstable requirement
-        // is the only consumable form, and SwiftPM demands every requirement on one package AGREE —
-        // LTX Studio already takes the port as `branch: "main"`, so this matches it. Consumers add
-        // this package by branch/revision too (Xcode "Branch" rule); a `from:` on it fails the same
-        // way. Revert both to `from:` the day upstream mlx-swift-lm ships a tag with #530/#387.
+        // VERSION since v0.3.0 (2026-11-19). Until then this was `branch: "main"`: the port pinned
+        // mlx-swift-lm by revision while no tag carried the Gemma-4 SPI, and SwiftPM rejects a
+        // stable-version requirement on a package that depends on an unstable one. mlx-swift-lm
+        // 3.32.3 carries #387/#530 and the port is version-pinned now (0.23.0 = 3.33 on the fleet's
+        // mlx-swift 0.33.1, AB-D-0264). Measured 2026-11-19: a root that still takes the port as
+        // `branch: "main"` (LTX Studio) resolves fine alongside this requirement; the root's branch
+        // pin wins.
         // Local development against the sibling checkout: `swift package edit ltx-2-mlx-swift --path
         // ../ltx-2-mlx-swift` (or Xcode's local-override) — the URL form costs nothing in-tree.
-        .package(url: "https://github.com/xocialize/ltx-2-mlx-swift", branch: "main"),
-        // Floor raised to what ltx-2-mlx-swift 0.21.0 itself requires: contract 1.55.0, typed
-        // adapters with conditioning groups (AB-A-0197).
-        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.70.0"),
+        .package(url: "https://github.com/xocialize/ltx-2-mlx-swift", from: "0.23.0"),
+        // Floor raised to what ltx-2-mlx-swift 0.23.0 itself requires: contract 1.55.0, typed
+        // adapters with conditioning groups (AB-A-0197), and mlx-swift from the fleet's 0.33.1 fork.
+        .package(url: "https://github.com/xocialize/mlx-engine-swift", from: "0.82.1"),
     ],
     targets: [
         .target(
